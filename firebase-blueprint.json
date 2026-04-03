@@ -1,0 +1,36 @@
+{
+  "entities": {
+    "PremiumCode": {
+      "title": "Premium Code",
+      "description": "A code that grants premium access to a user.",
+      "type": "object",
+      "properties": {
+        "code": { "type": "string", "description": "The secret code string." },
+        "used": { "type": "boolean", "description": "Whether the code has been used." },
+        "usedBy": { "type": "string", "description": "The IP or UID of the user who used it." },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["code", "used"]
+    },
+    "UserStatus": {
+      "title": "User Status",
+      "description": "Stores premium status for a specific IP or UID.",
+      "type": "object",
+      "properties": {
+        "isPremium": { "type": "boolean" },
+        "activatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["isPremium"]
+    }
+  },
+  "firestore": {
+    "/premium_codes/{codeId}": {
+      "schema": "PremiumCode",
+      "description": "Collection of available premium codes."
+    },
+    "/user_status/{userId}": {
+      "schema": "UserStatus",
+      "description": "Stores premium status indexed by IP or UID."
+    }
+  }
+}

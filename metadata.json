@@ -1,0 +1,5 @@
+{
+  "name": "PowerPoint AI",
+  "description": "Generate professional presentations with AI. Choose slide count, language, and include AI-generated images.",
+  "requestFramePermissions": ["microphone"]
+}
