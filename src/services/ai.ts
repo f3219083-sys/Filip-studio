@@ -2,7 +2,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { Slide, PresentationRequest } from "../types";
 
 function getAI() {
-  const apiKey = (process.env as any).API_KEY || process.env.GEMINI_API_KEY || "";
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY || "";
   return new GoogleGenAI({ apiKey });
 }
 

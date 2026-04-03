@@ -7,7 +7,7 @@ export interface Slide {
   imageHeight?: number;
 }
 
-export type PresentationTheme = 'Modern' | 'Classic' | 'Vibrant' | 'Dark' | 'Professional' | 'Creative' | 'Minimalist' | 'Corporate';
+export type PresentationTheme = 'Modern' | 'Classic' | 'Vibrant' | 'Dark' | 'Professional' | 'Creative' | 'Minimalist' | 'Corporate' | 'Green' | 'Blue';
 
 export interface PresentationRequest {
   topic: string;

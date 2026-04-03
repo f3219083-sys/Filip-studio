@@ -34,7 +34,7 @@ import {
 import pptxgen from 'pptxgenjs';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
-import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, ImageRun, PageBreak } from 'docx';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, ImageRun, PageBreak, Table, TableRow, TableCell, WidthType, BorderStyle } from 'docx';
 import { saveAs } from 'file-saver';
 import { collection, doc, getDoc, setDoc, updateDoc, onSnapshot, query, where, addDoc, deleteDoc, serverTimestamp, getDocs } from 'firebase/firestore';
 import { db } from './firebase';
@@ -124,6 +124,7 @@ export default function App() {
   const [showLanguageMenu, setShowLanguageMenu] = useState(false);
   const [showThemeMenu, setShowThemeMenu] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState(0);
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = React.useRef<any>(null);
   const shouldListenRef = React.useRef(false);
@@ -378,37 +379,114 @@ export default function App() {
     try {
       const docChildren: any[] = [];
 
+      // Theme colors for Word
+      const getThemeColor = () => {
+        switch (theme) {
+          case 'Modern': return 'F97316'; // Orange
+          case 'Classic': return '2563EB'; // Blue
+          case 'Vibrant': return 'A855F7'; // Purple
+          case 'Dark': return 'F97316'; // Orange
+          case 'Professional': return '0F172A'; // Slate
+          case 'Creative': return 'EA580C'; // Orange-600
+          case 'Minimalist': return '000000'; // Black
+          case 'Corporate': return '1E40AF'; // Blue-800
+          case 'Green': return '16A34A'; // Green-600
+          case 'Blue': return '3B82F6'; // Blue-500
+          default: return '2563EB';
+        }
+      };
+
+      const themeColor = getThemeColor();
+
       for (let i = 0; i < slides.length; i++) {
         const slide = slides[i];
+        setExportProgress(Math.round(((i + 1) / slides.length) * 100));
         
+        // Color Bar above title
+        docChildren.push(
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: " ",
+                size: 12,
+              }),
+            ],
+            shading: {
+              fill: themeColor,
+            },
+            spacing: { before: 200, after: 100 },
+          })
+        );
+
         // Title
         docChildren.push(
           new Paragraph({
             text: slide.title,
             heading: HeadingLevel.HEADING_1,
             alignment: AlignmentType.LEFT,
-            spacing: { before: 400, after: 200 },
+            spacing: { before: 100, after: 400 },
           })
         );
 
-        // Image if exists and included
+        // Layout: 2-column table (Text on Left, Image on Right)
+        const tableCells: TableCell[] = [];
+
+        // Left Column: Content
+        const contentParagraphs = slide.content.map((point) => (
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: `* ${point}`, // Asterisks as requested
+                size: 24,
+                color: themeColor, // Use theme color for asterisks
+              }),
+            ],
+            spacing: { before: 120, after: 120 },
+          })
+        ));
+
+        tableCells.push(
+          new TableCell({
+            children: contentParagraphs,
+            width: { size: 60, type: WidthType.PERCENTAGE },
+            borders: {
+              top: { style: BorderStyle.NONE },
+              bottom: { style: BorderStyle.NONE },
+              left: { style: BorderStyle.NONE },
+              right: { style: BorderStyle.NONE },
+            },
+          })
+        );
+
+        // Right Column: Image
         if (includeImages && slide.imageUrl) {
           try {
             const response = await fetch(slide.imageUrl);
             const buffer = await response.arrayBuffer();
             
-            docChildren.push(
-              new Paragraph({
+            tableCells.push(
+              new TableCell({
                 children: [
-                  new ImageRun({
-                    data: new Uint8Array(buffer),
-                    transformation: {
-                      width: 400,
-                      height: 300,
-                    },
-                  } as any),
+                  new Paragraph({
+                    children: [
+                      new ImageRun({
+                        data: new Uint8Array(buffer),
+                        transformation: {
+                          width: 300,
+                          height: 400, // Long image as requested
+                        },
+                      } as any),
+                    ],
+                    alignment: AlignmentType.CENTER,
+                  }),
                 ],
-                spacing: { before: 200, after: 200 },
+                width: { size: 40, type: WidthType.PERCENTAGE },
+                borders: {
+                  top: { style: BorderStyle.NONE },
+                  bottom: { style: BorderStyle.NONE },
+                  left: { style: BorderStyle.NONE },
+                  right: { style: BorderStyle.NONE },
+                },
               })
             );
           } catch (imgError) {
@@ -416,20 +494,24 @@ export default function App() {
           }
         }
 
-        // Content points
-        slide.content.forEach((point) => {
-          docChildren.push(
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: `• ${point}`,
-                  size: 24,
-                }),
-              ],
-              spacing: { before: 120, after: 120 },
-            })
-          );
-        });
+        docChildren.push(
+          new Table({
+            rows: [
+              new TableRow({
+                children: tableCells,
+              }),
+            ],
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            borders: {
+              top: { style: BorderStyle.NONE },
+              bottom: { style: BorderStyle.NONE },
+              left: { style: BorderStyle.NONE },
+              right: { style: BorderStyle.NONE },
+              insideHorizontal: { style: BorderStyle.NONE },
+              insideVertical: { style: BorderStyle.NONE },
+            },
+          })
+        );
 
         // Watermark if not premium
         if (!isPremium) {
@@ -465,11 +547,12 @@ export default function App() {
       });
 
       const blob = await Packer.toBlob(doc);
-      saveAs(blob, `WordAI_${topic.replace(/\s+/g, '_')}.docx`);
+      saveAs(blob, `Word_AI_${topic.replace(/\s+/g, '_')}.docx`);
     } catch (error) {
       console.error('Error generating Word document:', error);
     } finally {
       setIsExporting(false);
+      setExportProgress(0);
     }
   };
 
@@ -490,10 +573,11 @@ export default function App() {
 
     for (let i = 0; i < slides.length; i++) {
       setCurrentSlideIndex(i);
+      setExportProgress(Math.round(((i + 1) / slides.length) * 100));
       
       // Wait for React to render the slide AND for images to load
-      // Increased timeout and added image check
-      await new Promise(resolve => setTimeout(resolve, 800));
+      // Reduced timeout for faster export
+      await new Promise(resolve => setTimeout(resolve, 400));
       
       const images = slideElement.getElementsByTagName('img');
       const imagePromises = Array.from(images).map(img => {
@@ -506,7 +590,7 @@ export default function App() {
       await Promise.all(imagePromises);
 
       const canvas = await html2canvas(slideElement, {
-        scale: 2,
+        scale: 1.0, // Minimum scale for maximum speed
         useCORS: true,
         allowTaint: true,
         backgroundColor: theme === 'Dark' ? '#0F172A' : '#FFFFFF',
@@ -522,6 +606,7 @@ export default function App() {
     pdf.save(`PowerPointAI_${topic.replace(/\s+/g, '_')}.pdf`);
     setCurrentSlideIndex(originalIndex);
     setIsExporting(false);
+    setExportProgress(0);
   };
 
   const handleAddSlide = async () => {
@@ -690,6 +775,8 @@ export default function App() {
     { id: 'Creative', label: language === 'English' ? 'Creative' : 'Δημιουργικό', color: 'bg-orange-400' },
     { id: 'Minimalist', label: language === 'English' ? 'Minimalist' : 'Μινιμαλιστικό', color: 'bg-white border border-slate-300' },
     { id: 'Corporate', label: language === 'English' ? 'Corporate' : 'Εταιρικό', color: 'bg-blue-900' },
+    { id: 'Green', label: language === 'English' ? 'Green' : 'Πράσινο', color: 'bg-green-600' },
+    { id: 'Blue', label: language === 'English' ? 'Blue' : 'Μπλε', color: 'bg-blue-500' },
   ];
 
   return (
@@ -708,7 +795,7 @@ export default function App() {
           </button>
           <div className="flex flex-col">
             <h1 className="text-base lg:text-xl font-display font-black tracking-tight text-slate-900 leading-none">
-              {currentPage === 'home' ? 'filip' : (currentPage === 'word' ? 'Word' : 'PowerPoint')} <span className={currentPage === 'home' ? "text-green-600" : (currentPage === 'word' ? "text-blue-600" : "text-orange-500")}>{currentPage === 'home' ? 'Studio' : 'AI'}</span>
+              {currentPage === 'home' ? 'filip' : (currentPage === 'word' ? 'Word\u00A0' : 'PowerPoint\u00A0')} <span className={currentPage === 'home' ? "text-green-600" : (currentPage === 'word' ? "text-blue-600" : "text-orange-500")}>{currentPage === 'home' ? 'Studio' : 'AI'}</span>
             </h1>
             <p className="text-[8px] lg:text-[10px] font-black text-slate-400 uppercase tracking-[0.1em] lg:tracking-[0.2em] mt-0.5 whitespace-nowrap">
               {currentPage === 'home' ? 'The Beginning' : (currentPage === 'word' ? 'Professional Documents' : 'Professional Slides')}
@@ -1318,7 +1405,11 @@ export default function App() {
                           <div className="space-y-2 shrink-0">
                             <div className={cn(
                               "w-12 h-1.5 rounded-full",
-                              currentPage === 'word' ? "bg-blue-600" : "bg-orange-500"
+                              currentPage === 'word' ? "bg-blue-600" : (
+                                theme === 'Green' ? "bg-green-600" : (
+                                  theme === 'Blue' ? "bg-blue-500" : "bg-orange-500"
+                                )
+                              )
                             )} />
                             <h2 
                               contentEditable
@@ -1328,7 +1419,11 @@ export default function App() {
                                 "font-display font-bold leading-[1.1] tracking-tight outline-none rounded-lg px-2 -ml-2 transition-all",
                                 currentPage === 'word' ? "focus:ring-2 focus:ring-blue-500/20" : "focus:ring-2 focus:ring-orange-500/20",
                                 getTitleSizeClass(slides[currentSlideIndex].title),
-                                theme === 'Dark' ? "text-white" : "text-slate-900"
+                                theme === 'Dark' ? "text-white" : (
+                                  theme === 'Green' ? "text-green-900" : (
+                                    theme === 'Blue' ? "text-blue-900" : "text-slate-900"
+                                  )
+                                )
                               )}
                             >
                               {slides[currentSlideIndex].title}
@@ -1341,7 +1436,11 @@ export default function App() {
                               minFontSize={10}
                               className={cn(
                                 "custom-scrollbar",
-                                theme === 'Dark' ? "text-slate-300" : "text-slate-600"
+                                theme === 'Dark' ? "text-slate-300" : (
+                                  theme === 'Green' ? "text-green-900" : (
+                                    theme === 'Blue' ? "text-blue-900" : "text-slate-600"
+                                  )
+                                )
                               )}
                             >
                               <ul className="space-y-6">
@@ -1366,7 +1465,9 @@ export default function App() {
                                           theme === 'Professional' && "bg-slate-900" ||
                                           theme === 'Creative' && "bg-orange-600" ||
                                           theme === 'Minimalist' && "bg-black" ||
-                                          theme === 'Corporate' && "bg-blue-800"
+                                          theme === 'Corporate' && "bg-blue-800" ||
+                                          theme === 'Green' && "bg-green-600" ||
+                                          theme === 'Blue' && "bg-blue-500"
                                         )
                                       )} />
                                     )}
@@ -1598,6 +1699,47 @@ export default function App() {
 
       {/* Pro Modal */}
       <AnimatePresence>
+        {isExporting && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-xl">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-white w-full max-w-sm rounded-[3rem] p-12 shadow-2xl text-center space-y-8 relative overflow-hidden"
+            >
+              <div className="absolute top-0 left-0 w-full h-2 bg-slate-100">
+                <motion.div 
+                  className={cn("h-full transition-all duration-500", currentPage === 'word' ? "bg-blue-600" : "bg-orange-500")}
+                  style={{ width: `${exportProgress}%` }}
+                />
+              </div>
+              
+              <div className={cn("w-24 h-24 rounded-[2.5rem] flex items-center justify-center mx-auto shadow-2xl animate-bounce", currentPage === 'word' ? "bg-blue-600 shadow-blue-200" : "bg-orange-500 shadow-orange-200")}>
+                <Download className="w-10 h-10 text-white" />
+              </div>
+              
+              <div className="space-y-3">
+                <h3 className="text-3xl font-display font-black text-slate-900 tracking-tight">
+                  {language === 'English' ? 'Exporting...' : 'Εξαγωγή...'}
+                </h3>
+                <p className="text-slate-500 font-bold text-sm uppercase tracking-widest">
+                  {exportProgress > 0 ? `${exportProgress}% ${language === 'English' ? 'Complete' : 'Ολοκληρώθηκε'}` : (language === 'English' ? 'Preparing your file' : 'Προετοιμασία αρχείου')}
+                </p>
+              </div>
+
+              <div className="flex justify-center gap-2">
+                {[0, 1, 2].map((i) => (
+                  <motion.div
+                    key={i}
+                    animate={{ scale: [1, 1.5, 1], opacity: [0.3, 1, 0.3] }}
+                    transition={{ repeat: Infinity, duration: 1, delay: i * 0.2 }}
+                    className={cn("w-2 h-2 rounded-full", currentPage === 'word' ? "bg-blue-600" : "bg-orange-500")}
+                  />
+                ))}
+              </div>
+            </motion.div>
+          </div>
+        )}
+
         {showProModal && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
             <motion.div 
