@@ -367,6 +367,21 @@ export default function App() {
           valign: 'top'
         });
       }
+
+      // Watermark if not premium
+      if (!isPremium) {
+        s.addText('filip studio', {
+          x: 0.5,
+          y: 7.1,
+          w: 2,
+          h: 0.3,
+          fontSize: 10,
+          color: themeColors.title,
+          bold: true,
+          italic: true,
+          opacity: 0.2
+        });
+      }
     });
 
     pres.writeFile({ fileName: `PowerPointAI_${topic.replace(/\s+/g, '_')}.pptx` });
@@ -1401,6 +1416,18 @@ export default function App() {
                         }}
                         className="absolute inset-0 p-12 lg:p-20 flex flex-col lg:flex-row gap-16"
                       >
+                        {/* Slide Watermark */}
+                        {!isPremium && (
+                          <div className="absolute bottom-8 left-8 z-20 pointer-events-none opacity-20">
+                            <p className={cn(
+                              "text-[10px] font-black uppercase tracking-[0.4em] select-none",
+                              theme === 'Dark' ? "text-white" : "text-slate-900"
+                            )}>
+                              filip studio
+                            </p>
+                          </div>
+                        )}
+                        
                         <div className="flex-1 flex flex-col gap-10 z-10 overflow-hidden">
                           <div className="space-y-2 shrink-0">
                             <div className={cn(
@@ -1884,6 +1911,14 @@ export default function App() {
           </div>
         )}
       </AnimatePresence>
+
+      {!isPremium && (
+        <div className="fixed bottom-4 left-4 z-[100] pointer-events-none">
+          <p className="text-[10px] font-black text-slate-400/40 uppercase tracking-[0.2em] select-none">
+            filip studio
+          </p>
+        </div>
+      )}
     </div>
   );
 }
